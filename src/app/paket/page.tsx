@@ -98,7 +98,7 @@ export default function PaketPage() {
         <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
           <SectionHeader
             eyebrow="Kelas privat"
-            headline="Sesi privat atau kelompok kecil"
+            headline="Privat dan kelompok kecil"
             description="Kelas privat diatur per permintaan, sehingga jadwal, durasi dan fokus materinya disepakati lebih dulu. Kelas ini tidak muncul di jadwal mingguan."
             cta={
               <>

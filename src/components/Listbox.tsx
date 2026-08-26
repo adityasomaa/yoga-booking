@@ -124,13 +124,28 @@ export default function Listbox<T extends string = string>({
     };
   }, [open, position]);
 
-  // Move DOM focus into the list when it opens so the keyboard contract works.
+  // Move DOM focus into the list when it opens, so ArrowDown/Home/End/type-ahead
+  // reach the list instead of the trigger.
+  //
+  // This MUST also depend on `rect`: on the render where `open` flips true the
+  // popup has not been positioned yet, so it is not in the DOM and listRef is
+  // still null. The list only mounts on the following render, once the layout
+  // effect has measured the trigger. Watching `open` alone therefore focused
+  // nothing and left the keyboard contract dead.
+  const focusedThisOpen = useRef(false);
   useEffect(() => {
-    if (!open) return;
-    // Focus after the portal has painted.
-    const raf = requestAnimationFrame(() => listRef.current?.focus());
+    if (!open) {
+      focusedThisOpen.current = false;
+      return;
+    }
+    if (!rect || focusedThisOpen.current) return;
+    const raf = requestAnimationFrame(() => {
+      if (!listRef.current) return;
+      listRef.current.focus();
+      focusedThisOpen.current = true;
+    });
     return () => cancelAnimationFrame(raf);
-  }, [open]);
+  }, [open, rect]);
 
   /** Opens the list with the active option aligned to the current value. */
   const openList = useCallback(() => {
@@ -243,6 +258,7 @@ export default function Listbox<T extends string = string>({
   };
 
   const onTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (open) return; // already open: the list owns the keyboard
     if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
       e.preventDefault();
       openList();

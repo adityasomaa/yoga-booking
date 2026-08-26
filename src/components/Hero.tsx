@@ -31,7 +31,7 @@ export default function Hero() {
       </div>
 
       <div className="layer-content relative shell flex flex-1 flex-col justify-center py-10">
-        <div className="max-w-2xl">
+        <div className="max-w-2xl lg:max-w-5xl">
           <p className="t-eyebrow">Kelas yoga di {STUDIO_CITY}</p>
 
           <h1 className="t-display mt-4">Jadwal kelas yoga mingguan</h1>
