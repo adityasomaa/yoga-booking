@@ -124,28 +124,27 @@ export default function Listbox<T extends string = string>({
     };
   }, [open, position]);
 
-  // Move DOM focus into the list when it opens, so ArrowDown/Home/End/type-ahead
-  // reach the list instead of the trigger.
+  // Move DOM focus into the list the moment it mounts, so ArrowDown / ArrowUp /
+  // Home / End / type-ahead reach the list instead of the trigger.
   //
-  // This MUST also depend on `rect`: on the render where `open` flips true the
-  // popup has not been positioned yet, so it is not in the DOM and listRef is
-  // still null. The list only mounts on the following render, once the layout
-  // effect has measured the trigger. Watching `open` alone therefore focused
-  // nothing and left the keyboard contract dead.
+  // This is done from the ref callback rather than an effect. The popup is only
+  // rendered once `rect` has been measured, which happens a render AFTER `open`
+  // flips true -- so an effect keyed on `open` runs while the <ul> does not yet
+  // exist and focuses nothing, leaving the whole keyboard contract dead. The
+  // ref callback fires exactly when the node enters the DOM, which removes the
+  // ordering question entirely.
   const focusedThisOpen = useRef(false);
   useEffect(() => {
-    if (!open) {
-      focusedThisOpen.current = false;
-      return;
-    }
-    if (!rect || focusedThisOpen.current) return;
-    const raf = requestAnimationFrame(() => {
-      if (!listRef.current) return;
-      listRef.current.focus();
+    if (!open) focusedThisOpen.current = false;
+  }, [open]);
+
+  const attachList = useCallback((node: HTMLUListElement | null) => {
+    listRef.current = node;
+    if (node && !focusedThisOpen.current) {
       focusedThisOpen.current = true;
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [open, rect]);
+      node.focus();
+    }
+  }, []);
 
   /** Opens the list with the active option aligned to the current value. */
   const openList = useCallback(() => {
@@ -281,7 +280,7 @@ export default function Listbox<T extends string = string>({
     if (!open || !rect || !mounted) return null;
     return createPortal(
       <ul
-        ref={listRef}
+        ref={attachList}
         id={listId}
         role="listbox"
         tabIndex={-1}
