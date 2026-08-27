@@ -365,3 +365,111 @@ tujuannya.
 Kode ini milik pemilik studio. Tidak ada biaya langganan, tidak ada vendor
 lock-in, tidak ada nama penyedia sistem booking mana pun yang disebut di
 situs — itu urusan internal, bukan pesan untuk peserta.
+
+---
+
+## Hasil verifikasi di produksi
+
+Diverifikasi di `https://yogabooking.onyxcreative.asia`, bukan hanya localhost.
+
+### Rute dan aset
+- **16/16 rute dan aset 200** di domain final (semua halaman, sitemap, robots,
+  OG image, site icon, grafik SVG, kedua file font).
+- **0 error console**, **29/29 request sukses**, dan **tidak ada satu pun
+  request ke `/_next/image`** — optimizer benar-benar mati, jadi tidak ada
+  risiko 402.
+- **0 gambar broken** dari 13 gambar yang diperiksa.
+
+### Overflow horizontal
+Diperiksa di 9 halaman × 3 lebar (mobile, tablet, desktop):
+
+| Lebar viewport terukur | Halaman | Offender | Halaman menggeser ke samping |
+|---|---|---|---|
+| 360 px | 9 | **0** | 0 |
+| 753 px | 9 | **0** | 0 |
+| 1425 px | 9 | **0** | 0 |
+
+Jadwal mingguan di lebar kecil memang berubah jadi daftar per hari yang
+ditumpuk (bukan 7 kolom dipaksa muat), dan versi kolomnya tetap punya
+kontainer `overflow-x` sendiri.
+
+### Anggaran baris heading
+92 heading diperiksa di tiap lebar:
+
+| Lebar | Batas | Maksimum terukur | Melanggar |
+|---|---|---|---|
+| 360 px | 3 baris | 2 | **0** |
+| 753 px | 2 baris | 2 | **0** |
+| 1425 px | 1 baris | 1 | **0** |
+
+Pada pemeriksaan pertama ada 2 heading yang masih 2 baris di desktop; itu
+diperbaiki lewat ukuran font dan lebar kolom, bukan line break manual.
+
+### Aturan kuota dan waktu (dijalankan sungguhan di produksi)
+Kuota satu sesi diturunkan jadi 2 lewat halaman admin, lalu dipesan lewat form
+asli sampai habis:
+
+| Percobaan | Status sebelum | Label | Tombol | Server |
+|---|---|---|---|---|
+| 1 | `almost-full` | "Hampir penuh - sisa 2 tempat" | **Pesan** | diterima |
+| 2 | `almost-full` | "Hampir penuh - sisa 1 tempat" | **Pesan** | diterima |
+| 3 | `full` | **"Penuh"** | **Daftar Tunggu** | tidak dilanjutkan |
+
+Sisa tempat berkurang tanpa refresh, dan live region mengumumkan
+`"Yin 27 Agu pukul 19:30: kuota penuh."`
+
+- **Sesi lewat**: 8 sesi berstatus `past` dengan label "Sudah lewat" dan tombol
+  "Tidak tersedia" — termasuk jam yang sudah lewat di hari yang sama.
+- **Batas waktu pemesanan**: diverifikasi di `npm run verify:rules` pada presisi
+  1 menit sebelum dan sesudah batas (lolos / ditutup). Saat pengujian di
+  produksi tidak ada sesi yang kebetulan berada di dalam jendela 2 jam, jadi
+  status "Pemesanan ditutup" belum sempat terlihat langsung di layar.
+- **Validasi server**: `npm run verify:rules` menjalankan modul yang sama persis
+  dengan yang ter-deploy — 33/33 lolos, termasuk penolakan sesi palsu, tanggal
+  yang tidak cocok dengan hari pola, sesi yang sudah dibatalkan, dan jumlah
+  orang melebihi sisa tempat.
+
+### Jadwal berulang dan pengecualian tanggal
+- Minggu ini, minggu depan, dan dua minggu ke depan masing-masing menghasilkan
+  **16 sesi** dari pola yang sama, tanpa entri manual. ID sesi antar minggu
+  tidak bertabrakan.
+- **Tanggal libur**: menandai Jumat sebagai libur membuat hari itu jadi 0 sesi
+  dengan keterangan "Studio tutup. Studio libur", dan hari lain tidak berubah.
+- **Pembatalan sesi dari admin langsung hilang di sisi peserta**: sesi Kamis
+  19:30 dibatalkan di `/admin`, lalu di `/jadwal` hari Kamis tersisa satu sesi
+  saja. Perubahan kuota juga langsung terlihat di sisi peserta.
+- **Reset Demo**: 13 sesi kembali jadi 16, penyimpanan browser kembali kosong.
+
+### Transisi halaman
+Urutan fase terekam langsung dari DOM saat menekan link nav:
+
+```
+idle    /        scroll 1200
+closing /        scroll 1200   <- tirai menutup, konten belum berubah
+opening /kelas   scroll 0      <- konten berganti DAN scroll direset saat tertutup
+idle    /kelas   scroll 0
+```
+
+Loader "boot" dipakai saat menuju Home, loader "page" untuk rute lain.
+
+**Uji rAF mati:** `requestAnimationFrame` di-patch agar tidak pernah memanggil
+callback-nya (meniru tab yang dipindah ke belakang), lalu navigasi dijalankan.
+3 panggilan rAF ditelan, dan sequence **tetap selesai** sampai `idle`. Tirai
+tidak nyangkut — inilah yang dijamin oleh balapan `setTimeout` vs rAF.
+
+### Aksesibilitas
+- **Kontras**: 22/22 pasangan warna lolos WCAG AA (`npm run contrast`).
+- **Z-index**: 0 raw z-index di seluruh codebase (`npm run audit:z`), 9 token.
+- **Listbox ARIA**: fokus masuk ke daftar, panah memindah opsi aktif, End ke
+  opsi terakhir, type-ahead "J" mendarat di "Jumat", Enter memilih dan menutup,
+  Escape menutup, fokus selalu kembali ke trigger, popup di-portal ke `<body>`.
+- **Status tidak hanya warna**: seluruh kartu sesi menampilkan label teks.
+- **Hamburger**: menu buka/tutup, `aria-expanded` berubah, scroll body dikunci
+  lalu dikembalikan, dan Escape menutup.
+- **Cookie banner menyingkir** saat menu mobile terbuka (bukan menumpuk).
+- **Lenis**: aktif di `/jadwal` desktop, mati total di `/admin`.
+
+### Yang belum sempat dilihat mata
+Verifikasi motion di atas dilakukan lewat DOM, state, dan API — fase transisi
+dibaca dari atribut `data-phase`, bukan dari menonton animasinya berjalan.
+Kehalusan animasi secara visual belum dinilai.
