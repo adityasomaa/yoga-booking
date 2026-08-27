@@ -169,7 +169,7 @@ mendaftar untuk jadwal yang mana. Di sini keduanya dipisah tegas:
 |---|---|---|
 | Contoh | "Vinyasa" | "Vinyasa, Selasa 2 Sep, 18:00" |
 | Punya | deskripsi, tingkat, durasi, bawaan | tanggal, jam, kuota, sisa tempat |
-| Disimpan | ya, di `CLAUDE_TYPES` | **tidak** — diturunkan saat dibutuhkan |
+| Disimpan | ya, di `CLASS_TYPES` | **tidak** — diturunkan saat dibutuhkan |
 | Halaman | `/kelas`, `/kelas/[slug]` | `/jadwal` |
 
 Sesi **tidak pernah disimpan**. Sesi dihitung dengan cara memperluas pola
